@@ -4,6 +4,8 @@ import tls_client
 import pandas as pd
 import webbrowser
 
+line_diff = 2
+
 # Set request headers
 headers = {
     'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
@@ -42,16 +44,21 @@ unique_players = set()
 # Dictionary to store PrizePicks player name mappings
 library = {}
 
-# Process Underdog API data
 for appearances in underdog["over_under_lines"]:
     # Extract player name from the title
     underdog_title = ' '.join(appearances["over_under"]["title"].split()[0:2])
+    UDdisplay_stat = appearances['over_under']['appearance_stat']['display_stat']
+    UDstat_value = appearances['stat_value']
+    if ':' in underdog_title:
+        UDdisplay_stat = UDdisplay_stat.split(' ')
+        if '1+2' in UDdisplay_stat or '1+2+3' in UDdisplay_stat:
+            UDdisplay_stat = f"Maps {UDdisplay_stat[-1].replace('+','-')} {UDdisplay_stat[0]}"
+        else:
+            UDdisplay_stat = f"Map {UDdisplay_stat[-1]} {UDdisplay_stat[0]}"
     colon_index = underdog_title.find(":")
     if colon_index != -1:
         underdog_title = underdog_title[colon_index + 1:].strip()
-    UDdisplay_stat = appearances['over_under']['appearance_stat']['display_stat']
-    UDstat_value = appearances['stat_value']
-    uinfo = {"Name": underdog_title.lower(), "Stat": UDdisplay_stat, "Underdog": UDstat_value}
+    uinfo = {"Name": underdog_title, "Stat": UDdisplay_stat, "Underdog": UDstat_value}
     udlist.append(uinfo)
 
 # Process PrizePicks API data
@@ -74,7 +81,7 @@ for element in pplist:
     name_id = element['name_id']
     if name_id in library:
         player_name = library[name_id]
-        element['Name'] = player_name.lower()
+        element['Name'] = player_name
     else:
         element['Name'] = "Unknown"
     del element['name_id']
@@ -82,7 +89,7 @@ for element in pplist:
 # Compare player data from Underdog and PrizePicks
 for udn in udlist:
     for ppn in pplist:
-        if udn["Name"] == ppn["Name"] and udn["Stat"] == ppn["Stat"]:
+        if udn["Name"].lower() == ppn["Name"].lower() and udn["Stat"].lower() == ppn["Stat"].lower():
             final = {
                 "Name": udn["Name"],
                 "Stat": udn["Stat"],
@@ -106,7 +113,7 @@ df['Underdog'] = df['Underdog'].astype(float)
 df['Prizepicks'] = df['Prizepicks'].astype(float)
 
 # Filter the DataFrame based on the condition
-filtered_df = df[abs(df['Underdog'] - df['Prizepicks']) >= 1.5]
+filtered_df = df[abs(df['Underdog'] - df['Prizepicks']) >= line_diff]
 filtered_df = filtered_df[filtered_df['Stat'] != 'Receiving Yards']
 
 # Save the filtered DataFrame as an HTML file
